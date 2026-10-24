@@ -1,0 +1,12 @@
+{
+  "name": "firstprompt",
+  "version": "1.0.0",
+  "description": "An interactive primer that shows how language model text generation works, computed by a transparent deterministic simulator in the browser.",
+  "type": "module",
+  "private": true,
+  "author": "Aariv Patel",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/"
+  }
+}

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FirstPrompt, An Interactive Primer For Language Models</title>
+  <meta name="description" content="A hands on primer for people who have never built with AI. See text become tokens, watch temperature reshape the odds, fill a context window and assemble your first prompt. Everything is a transparent simulation that runs in your browser." />
+  <meta name="author" content="Aariv Patel" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d332b'/%3E%3Ctext x='16' y='23' font-family='Georgia, serif' font-size='19' font-weight='700' fill='%23f2c14e' text-anchor='middle'%3EF%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip To The Lessons</a>
+
+  <header class="site-header">
+    <div class="frame">
+      <a class="wordmark" href="#top">FirstPrompt<span class="sim-badge">A Simulation</span></a>
+      <nav class="lesson-nav" aria-label="Lessons">
+        <ol>
+          <li><a href="#tokens">Tokens</a></li>
+          <li><a href="#temperature">Temperature</a></li>
+          <li><a href="#window">Context Window</a></li>
+          <li><a href="#builder">Prompt Builder</a></li>
+        </ol>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero frame" id="top" aria-labelledby="hero-title">
+      <h1 id="hero-title">See How A Language Model Writes, <span class="turn">One Piece At A Time</span></h1>
+      <p class="hero-lede">
+        You do not need an account, an API key or any prior experience. FirstPrompt is a
+        transparent simulator with four hands on lessons. Every number you see is computed
+        in your browser from a table you could read yourself.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#tokens">Start Lesson One</a>
+        <p class="hero-note">No sign in. No network calls. Nothing leaves this page.</p>
+      </div>
+      <div class="hero-meter">
+        <div class="hero-stat">
+          <span class="numeral">4</span>
+          <span class="label">Interactive Lessons</span>
+        </div>
+        <div class="hero-stat">
+          <span class="numeral">0</span>
+          <span class="label">Network Calls, Ever</span>
+        </div>
+        <div class="hero-stat">
+          <span class="numeral">42</span>
+          <span class="label">Automated Tests Behind The Math</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lesson 1 -->
+    <section class="lesson" id="tokens" aria-labelledby="tokens-title">
+      <div class="frame">
+        <div class="lesson-head">
+          <span class="lesson-numeral" aria-hidden="true">1</span>
+          <div>
+            <h2 id="tokens-title">Words Become Tokens</h2>
+            <p class="lesson-lead">
+              A model never sees your words. It sees tokens, small pieces of text, and every
+              token costs money. Type below and watch the pieces, the count and the bill move together.
+            </p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="field">
+            <label class="field-label" for="token-input">Text To Tokenize</label>
+            <textarea id="token-input" rows="4" spellcheck="false">Language models do not read words the way you do. They chop text into pieces called tokens, then predict one piece at a time. Unbelievable, right?</textarea>
+          </div>
+
+          <div class="token-readout">
+            <div class="big-stat">
+              <span class="numeral" id="token-count">0</span>
+              <span class="label">Tokens</span>
+            </div>
+            <div class="big-stat">
+              <span class="numeral" id="char-count">0</span>
+              <span class="label">Characters</span>
+            </div>
+            <div class="big-stat">
+              <span class="numeral" id="token-cost">$0</span>
+              <span class="label">Estimated Cost</span>
+              <span class="sub" id="cost-per-million"></span>
+            </div>
+          </div>
+
+          <div class="price-row">
+            <div class="price-field">
+              <label class="field-label" for="token-price">Price Per Token, In Dollars</label>
+              <input type="number" id="token-price" min="0" step="0.00000005" value="0.0000001" />
+            </div>
+            <p class="field-help">
+              Many small models charge around 10 cents for a million tokens, which is
+              0.0000001 dollars for one token. Change it and the estimate follows.
+            </p>
+          </div>
+
+          <ol class="token-chips" id="token-chips" aria-label="Tokens in order"></ol>
+          <p class="token-legend">
+            <span><span class="swatch swatch-word" aria-hidden="true"></span>Whole Word</span>
+            <span><span class="swatch swatch-sub" aria-hidden="true"></span>Subword Piece</span>
+            <span><span class="swatch swatch-punct" aria-hidden="true"></span>Punctuation</span>
+          </p>
+          <p class="field-help">
+            This tokenizer follows fixed hand written rules, so common words stay whole and
+            longer words split. Real tokenizers learn their pieces from huge text corpora and
+            usually count spaces too, so treat these counts as a shape, not a quote.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lesson 2 -->
+    <section class="lesson" id="temperature" aria-labelledby="temperature-title">
+      <div class="frame">
+        <div class="lesson-head">
+          <span class="lesson-numeral" aria-hidden="true">2</span>
+          <div>
+            <h2 id="temperature-title">One Word At A Time</h2>
+            <p class="lesson-lead">
+              A model holds odds for every word that could come next, then draws one. Temperature
+              reshapes those odds before the draw and top k trims the menu. Drag the dial and watch
+              the same table turn predictable or adventurous.
+            </p>
+          </div>
+        </div>
+
+        <div class="temp-grid">
+          <div class="panel">
+            <svg class="dial-svg" viewBox="0 0 200 122" role="img" aria-labelledby="dial-title dial-desc">
+              <title id="dial-title">Temperature Dial</title>
+              <desc id="dial-desc">A gauge from 0 to 2. Low values are predictable, high values are adventurous. The needle follows the temperature slider.</desc>
+              <path class="dial-zone dial-zone-predict" d="M 20 100 A 80 80 0 0 1 52.98 35.28"></path>
+              <path class="dial-zone dial-zone-balanced" d="M 52.98 35.28 A 80 80 0 0 1 147.02 35.28"></path>
+              <path class="dial-zone dial-zone-adventure" d="M 147.02 35.28 A 80 80 0 0 1 180 100"></path>
+              <line class="dial-tick" x1="28" y1="100" x2="12" y2="100"></line>
+              <line class="dial-tick" x1="49.09" y1="49.09" x2="37.76" y2="37.76"></line>
+              <line class="dial-tick" x1="100" y1="28" x2="100" y2="12"></line>
+              <line class="dial-tick" x1="150.91" y1="49.09" x2="162.24" y2="37.76"></line>
+              <line class="dial-tick" x1="172" y1="100" x2="188" y2="100"></line>
+              <text class="dial-num" x="12" y="116" text-anchor="middle">0</text>
+              <text class="dial-num" x="30" y="27" text-anchor="middle">0.5</text>
+              <text class="dial-num" x="100" y="9" text-anchor="middle">1</text>
+              <text class="dial-num" x="170" y="27" text-anchor="middle">1.5</text>
+              <text class="dial-num" x="188" y="116" text-anchor="middle">2</text>
+              <text class="dial-label" x="22" y="86" text-anchor="start">Predictable</text>
+              <text class="dial-label" x="100" y="64" text-anchor="middle">Balanced</text>
+              <text class="dial-label" x="178" y="86" text-anchor="end">Adventurous</text>
+              <g class="needle-group" id="dial-needle">
+                <line class="needle-line" x1="100" y1="100" x2="100" y2="34"></line>
+                <circle class="needle-hub" cx="100" cy="100" r="6"></circle>
+              </g>
+            </svg>
+
+            <div class="slider-row">
+              <div class="slider-head">
+                <label class="field-label" for="temp-slider">Temperature</label>
+                <output id="temp-output" for="temp-slider">0.8</output>
+              </div>
+              <input type="range" id="temp-slider" min="0" max="2" step="0.05" value="0.8" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-head">
+                <label class="field-label" for="topk-slider">Top K</label>
+                <output id="topk-output" for="topk-slider">8</output>
+              </div>
+              <input type="range" id="topk-slider" min="1" max="8" step="1" value="8" />
+              <span class="field-help" id="topk-help">At 8 the menu keeps every word in this small table.</span>
+            </div>
+
+            <p class="regime-line" id="regime-line"></p>
+          </div>
+
+          <div class="panel">
+            <h3>Next Word Odds</h3>
+            <p class="field-help" style="margin-top: 4px;">Simulated odds for the word after the highlighted context, reshaped by your settings.</p>
+            <ol class="dist-list" id="dist-list"></ol>
+            <p class="dist-caption" id="dist-caption"></p>
+
+            <div class="sample-tray">
+              <h3>Pick A Starting Phrase</h3>
+              <div class="chip-set" id="start-chips" role="group" aria-label="Starting phrase"></div>
+              <div class="sample-controls">
+                <div class="seed-field">
+                  <label class="field-label" for="seed-input">Seed</label>
+                  <input type="number" id="seed-input" value="7" min="0" step="1" />
+                  <span class="field-help">Same seed, same draws, every time.</span>
+                </div>
+                <button class="btn btn-primary" id="draw-btn" type="button">Draw Three Samples</button>
+              </div>
+              <ol class="sample-list" id="sample-list" aria-live="polite"></ol>
+            </div>
+          </div>
+        </div>
+
+        <p class="aside-note">
+          <strong>Why low settings feel robotic.</strong> Near zero, the model nearly always picks
+          its favorite word, so the same phrase repeats. Near one it balances surprise and sense.
+          Past 1.5 the tail words get loud and grammar starts to wobble. Real settings rarely
+          leave the 0 to 1.5 range.
+        </p>
+      </div>
+    </section>
+
+    <!-- Lesson 3 -->
+    <section class="lesson" id="window" aria-labelledby="window-title">
+      <div class="frame">
+        <div class="lesson-head">
+          <span class="lesson-numeral" aria-hidden="true">3</span>
+          <div>
+            <h2 id="window-title">The Context Window</h2>
+            <p class="lesson-lead">
+              A model can only hold so much text at once, and long conversations overflow.
+              Fill this window and compare three rescue strategies for deciding what survives.
+            </p>
+          </div>
+        </div>
+
+        <div class="window-grid">
+          <div class="panel">
+            <div class="window-controls">
+              <div class="limit-field">
+                <label class="field-label" for="limit-select">Window Size</label>
+                <select id="limit-select">
+                  <option value="64">64 Tokens</option>
+                  <option value="128" selected>128 Tokens</option>
+                  <option value="256">256 Tokens</option>
+                </select>
+              </div>
+              <button class="btn" id="add-question" type="button">Add A Question</button>
+              <button class="btn" id="add-reply" type="button">Add A Reply</button>
+              <button class="btn btn-quiet" id="remove-last" type="button">Remove The Last</button>
+              <button class="btn btn-quiet" id="clear-chat" type="button">Clear The Conversation</button>
+            </div>
+            <p class="field-help">
+              Real windows run from a few thousand to around a million tokens. These are tiny so
+              you can watch one fill in a dozen clicks.
+            </p>
+
+            <div class="meter-block">
+              <div class="meter" id="meter" role="img" aria-label="Context window fill"></div>
+              <div class="meter-scale" aria-hidden="true">
+                <span>0</span>
+                <span id="meter-limit-label">128</span>
+              </div>
+            </div>
+
+            <p class="window-status" id="window-status" aria-live="polite"></p>
+
+            <fieldset class="strategy-set">
+              <legend class="field-label">If It Overflows, What Gets Dropped</legend>
+              <label class="radio-row"><input type="radio" name="strategy" value="recent" checked /> Recent First</label>
+              <label class="radio-row"><input type="radio" name="strategy" value="bookends" /> Keep The Opener</label>
+              <label class="radio-row"><input type="radio" name="strategy" value="summary" /> Summarize The Middle</label>
+            </fieldset>
+
+            <ol class="message-list" id="message-list"></ol>
+          </div>
+        </div>
+
+        <p class="aside-note">
+          <strong>Three real strategies, honestly simplified.</strong> Recent First slides the
+          window forward and drops the oldest block. Keep The Opener also pins your first question,
+          which often holds the real task. Summarize The Middle trades a few tokens for a tiny
+          stand in summary of what was cut. Production systems combine all three.
+        </p>
+      </div>
+    </section>
+
+    <!-- Lesson 4 -->
+    <section class="lesson" id="builder" aria-labelledby="builder-title">
+      <div class="frame">
+        <div class="lesson-head">
+          <span class="lesson-numeral" aria-hidden="true">4</span>
+          <div>
+            <h2 id="builder-title">Build Your First Prompt</h2>
+            <p class="lesson-lead">
+              Good prompts usually carry four parts. Fill them in and the builder assembles a
+              prompt you can copy anywhere, then explains why each part earns its place.
+            </p>
+          </div>
+        </div>
+
+        <div class="builder-grid">
+          <form class="panel builder-form" id="builder-form">
+            <div>
+              <label class="field-label" for="role-input">Role</label>
+              <input type="text" id="role-input" placeholder="A patient teacher for beginners" />
+              <span class="field-help">Who the model should be. A role sets the tone and the vocabulary.</span>
+            </div>
+            <div>
+              <label class="field-label" for="task-input">Task</label>
+              <textarea id="task-input" rows="3" placeholder="Explain what a token is to someone who has never used AI"></textarea>
+              <span class="field-help">The one job, stated as an action. Put it early so it anchors the rest.</span>
+            </div>
+            <div>
+              <label class="field-label" for="constraints-input">Constraints</label>
+              <textarea id="constraints-input" rows="3" placeholder="Use everyday words&#10;Keep it under 100 words"></textarea>
+              <span class="field-help">One rule per line. Each line fences the answer in.</span>
+            </div>
+            <div class="format-field">
+              <label class="field-label" for="format-select">Format</label>
+              <select id="format-select">
+                <option value="" selected>No Preference</option>
+                <option>A Short Paragraph</option>
+                <option>A Bullet List</option>
+                <option>A Numbered List</option>
+                <option>A Table</option>
+                <option>Step By Step Instructions</option>
+                <option>A Json Object</option>
+              </select>
+              <span class="field-help">The shape of the output. Naming it saves a round of reformatting.</span>
+            </div>
+            <div>
+              <button class="btn btn-quiet" id="example-btn" type="button">Fill In An Example</button>
+            </div>
+          </form>
+
+          <div class="panel">
+            <div class="preview-head">
+              <h3>Your Prompt</h3>
+              <span class="preview-count" id="preview-count"></span>
+            </div>
+            <pre class="prompt-preview" id="prompt-preview"></pre>
+            <ol class="part-notes">
+              <li><strong>Role</strong> sets the voice. The same task reads differently from a teacher than from an editor.</li>
+              <li><strong>Task</strong> is the job. One clear sentence beats three vague ones.</li>
+              <li><strong>Constraints</strong> fence the answer. Each line removes one way to drift.</li>
+              <li><strong>Format</strong> hands the model a container, so the answer lands ready to use.</li>
+            </ol>
+            <div class="builder-foot">
+              <div>
+                <span class="numeral" id="builder-count">0</span>
+                <span class="label"> Tokens In This Prompt</span>
+              </div>
+              <button class="btn btn-primary" id="copy-btn" type="button">Copy Prompt</button>
+              <span class="copy-note" id="copy-note" role="status"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="frame">
+      <p class="byline">Built by Aariv Patel</p>
+      <p>
+        Everything on this page is a labeled simulation. The tokenizer follows fixed rules, the
+        word odds come from a small hand written table, and sampling uses a seeded generator you
+        can replay. Nothing is sent anywhere and no model is called. Real systems are far larger
+        and learn their pieces from data rather than from an author.
+      </p>
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
