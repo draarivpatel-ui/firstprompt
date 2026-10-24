@@ -11,7 +11,7 @@
   --canvas-deep: #16281f;
   --ink: #f2eee1;
   --ink-muted: rgba(242, 238, 225, 0.64);
-  --ink-faint: rgba(242, 238, 225, 0.45);
+  --ink-faint: rgba(242, 238, 225, 0.58);
   --line: rgba(242, 238, 225, 0.18);
   --line-soft: rgba(242, 238, 225, 0.1);
   --wash: rgba(242, 238, 225, 0.05);
@@ -112,18 +112,6 @@ code,
 kbd {
   font-family: var(--font-mono);
   font-size: 0.92em;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .skip-link {
@@ -492,11 +480,6 @@ input[type="checkbox"] {
 
 /* ---------------- lesson 1, token table ---------------- */
 
-.token-grid {
-  display: grid;
-  gap: var(--space-5);
-}
-
 .token-readout {
   display: flex;
   flex-wrap: wrap;
@@ -621,10 +604,6 @@ input[type="checkbox"] {
   grid-template-columns: minmax(280px, 5fr) minmax(280px, 6fr);
   gap: var(--space-6);
   align-items: start;
-}
-
-.dial-stage {
-  text-align: center;
 }
 
 .dial-svg {

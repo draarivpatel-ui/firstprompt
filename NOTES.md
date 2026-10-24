@@ -100,3 +100,16 @@ counting).
   and learn why each part earns its place.
 - One hundred percent offline: one HTML page, zero dependencies, zero API calls, 42 passing
   tests behind the math, everything computed by a simulator you could rewrite yourself.
+
+## Refinement Pass 2026-10-24
+
+A presentation only pass over the deployed page. No simulator or lesson changes.
+
+- Wiring audit: every id app.js references exists in the markup, no duplicate ids, no dead listeners, no reachable console errors on a served load.
+- Added Open Graph title, description and type tags, and a theme color matching the chalk gold on pine canvas. Share sheets and browser chrome had nothing to read before.
+- Fixed contrast: helper text rode the faint ink token at 45 percent alpha, which computes to roughly 3.4 to 3.6 to 1 against the canvas and the wash and fails AA for normal text. The token now sits at 58 percent alpha, about 4.6 to 5.0 to 1, same hue, no other token touched.
+- Removed three provably dead CSS rules that no markup or script references: .visually-hidden, .token-grid and .dial-stage.
+- Fixed a screen reader noise bug: the sample list was a polite live region that re announced three full sentences on every keystroke in the seed field and every top k tick. It is ordinary content now; the discrete status regions elsewhere are unchanged.
+- Verified: no horizontal overflow at 320 px (the two column lesson grids collapse at 900 px and the row grids shrink at 640 px), reduced motion collapses every transition and the one entrance animation, no em or en dashes, no emoji, no all caps kickers.
+- Residual risk: module scripts need a static server. Opening index.html from file:// renders nothing because the import fails silently. Deployed over HTTP this cannot happen.
+- Tests before the pass: 42 passed, 0 failed. Tests after: 42 passed, 0 failed, so the hero copy still truthfully says 42.
