@@ -8,7 +8,7 @@ status: draft
 > FirstPrompt build, after the app was created from an empty folder during the
 > submission period. It records the architecture the build actually used.
 
-# FirstPrompt — Technical Spec
+# FirstPrompt: Technical Spec
 
 ## How This Works, In Plain Language
 
@@ -41,10 +41,10 @@ PRD ref: `prd.md > The Core Journey`.
 ## Stack
 
 - Vanilla HTML, CSS, JavaScript (no framework, no build step, no dependencies)
-  — every lesson stays inspectable and the page works offline. Tradeoff
+  so every lesson stays inspectable and the page works offline. Tradeoff
   accepted: no component magic; the app is small enough not to need it.
 - SVG for the temperature dial (drawn in code, no image assets).
-- `node:test` (built into Node 18+) for the 42-test suite — zero packages to
+- `node:test` (built into Node 18+) for the 42-test suite: zero packages to
   install; `npm test` is the whole setup.
 - GitHub Pages for hosting (static files only).
 
@@ -131,12 +131,12 @@ stated feature (the honesty badge), not an omission.
 
 ## What Was Simplified and Why
 
-- **Rule based tokenizer** instead of a real BPE tokenizer — the approximation
+- **Rule based tokenizer** instead of a real BPE tokenizer: the approximation
   teaches the same concept and is labeled as a simulation; the real tokenizer
   would require model vocab downloads.
-- **Hand authored bigram table** instead of a real model — small enough to
+- **Hand authored bigram table** instead of a real model: small enough to
   inspect, real enough to make softmax and top-k honest.
-- **Fixed seed sampling** instead of live randomness — reproducibility is the
+- **Fixed seed sampling** instead of live randomness: reproducibility is the
   proof the lessons can be trusted.
 
 The fuller versions would each import external data or APIs and break the
@@ -145,10 +145,10 @@ never faked.
 
 ## Decisions and Open Issues
 
-- Simulation over API — learner-level product decision (see
+- Simulation over API: learner-level product decision (see
   `prd.md > Product Decisions`); tradeoff is realism for transparency and
   reproducibility.
-- One shared tokenizer across lessons — implementation decision derived from
+- One shared tokenizer across lessons: implementation decision derived from
   the consistency requirement; accepted cost is that Lesson 3 counts match
   Lesson 1's approximation rather than any real model.
 - Genuine uncertainty discussed: how to make determinism visible rather than

@@ -9,7 +9,7 @@ status: draft
 > submission period. It records the behavior the built app actually implements;
 > acceptance criteria are checkable against `tests/simulator.test.js` (42 tests).
 
-# FirstPrompt — Product Requirements
+# FirstPrompt: Product Requirements
 
 One line: a four lesson interactive primer on how language model text generation
 works, for curious builders who have used prompts but never seen the machinery.
@@ -32,7 +32,7 @@ Source: `scope.md > The Core Loop`, `scope.md > Who It's For`.
 5. Lesson 4: they assemble a prompt from Role, Task, Constraints and Format,
    read what each part is for, and copy the labeled result with one click.
 6. Success is a person who can say what temperature, tokens, context windows,
-   and structured prompting actually do — having watched each one move.
+   and structured prompting actually do, having watched each one move.
 
 ## Screens and Layout
 
@@ -104,26 +104,26 @@ API with a fallback for stricter contexts.
 
 ## States and Boundaries
 
-- **First use** — every lesson is usable empty: samples, placeholder
+- **First use**: every lesson is usable empty: samples, placeholder
   conversations, and an example prompt are one click away.
-- **Empty input (Lesson 1)** — zero tokens shown honestly; no fake data.
-- **Overflow (Lesson 3)** — the trigger for the strategy comparison, not an
+- **Empty input (Lesson 1)**: zero tokens shown honestly; no fake data.
+- **Overflow (Lesson 3)**: the trigger for the strategy comparison, not an
   error; the meter shows the overflow clearly.
-- **No persistence** — the page stores nothing; a refresh starts clean, and the
+- **No persistence**: the page stores nothing; a refresh starts clean, and the
   footer says so.
-- **Honesty boundary** — the header badge and footer note label the whole page
+- **Honesty boundary**: the header badge and footer note label the whole page
   as a simulation; the tokenizer and bigram table are approximations and are
   named as such.
 
 ## Product Decisions
 
-- Simulation instead of a real model API — zero setup, reproducible numbers,
+- Simulation instead of a real model API: zero setup, reproducible numbers,
   and nothing to pay for; labeled as a simulation everywhere.
-- Fixed seeds on sampling — so a learner can verify determinism themselves by
+- Fixed seeds on sampling: so a learner can verify determinism themselves by
   replaying a draw; trust comes from repeatability.
-- One shared tokenizer across lessons 1 and 3 — counts stay consistent and the
+- One shared tokenizer across lessons 1 and 3: counts stay consistent and the
   lessons reinforce each other.
-- Hand authored bigram table — small enough to inspect, real enough to teach
+- Hand authored bigram table: small enough to inspect, real enough to teach
   softmax and top-k honestly.
 
 ## What We're Building
@@ -134,11 +134,11 @@ seeded sampler, truncation comparison, prompt builder, and the 42-test
 
 ## Deferred From the POC
 
-- A real model backend — the lessons teach the mechanics; wiring an API would
+- A real model backend: the lessons teach the mechanics; wiring an API would
   add keys, cost, and non-determinism.
-- More lessons (embeddings, attention) — worth doing, not needed to prove the
+- More lessons (embeddings, attention): worth doing, not needed to prove the
   kernel.
-- Saving conversations or prompts — nothing in the loop needs persistence.
+- Saving conversations or prompts: nothing in the loop needs persistence.
 
 ## Possible Later Enhancements
 
