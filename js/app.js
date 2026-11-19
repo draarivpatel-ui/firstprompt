@@ -335,7 +335,6 @@ function renderWindow() {
     meterEl.appendChild(over);
   }
 
-  const keptSet = new Set(plan.keptIds);
   const droppedSet = new Set(plan.droppedIds);
 
   if (!account.over) {
