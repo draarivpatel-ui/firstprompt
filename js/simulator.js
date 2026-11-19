@@ -432,7 +432,6 @@ export function budgetAccount(messages, limit) {
 export function truncate(messages, limit, strategy = "recent") {
   const account = budgetAccount(messages, limit);
   const cap = account.limit;
-  const systemIds = messages.filter((m) => m.role === "system").map((m) => m.id);
 
   let keptTokens = 0;
   const fits = (extraTokens) => (keptTokens + extraTokens) <= cap;
