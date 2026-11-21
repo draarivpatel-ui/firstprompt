@@ -14,7 +14,11 @@
  * Same seed always yields the same sequence of numbers in [0, 1).
  */
 export function mulberry32(seed) {
-  let a = seed >>> 0;
+  // Fold the fractional part and sign into the state so seeds like 0 and 0.5
+  // do not alias to the same stream after >>> 0 truncation.
+  const n = Number(seed) || 0;
+  const frac = Math.round((Math.abs(n) % 1) * 4294967296) >>> 0;
+  let a = ((n >>> 0) ^ frac ^ (n < 0 ? 0x80000000 : 0)) >>> 0;
   return function next() {
     a |= 0;
     a = (a + 0x6d2b79f5) | 0;
@@ -36,7 +40,9 @@ const SUFFIXES = [
 
 const PREFIXES = ["under", "over", "inter", "dis", "mis", "pre", "un", "re"];
 
-const WORD_PATTERN = /[A-Za-z]+(?:'[A-Za-z]+)*|\d+|[^\sA-Za-z\d]/g;
+// The u flag makes the punctuation class match whole code points, so emoji
+// and other non BMP characters become one token instead of lone surrogates.
+const WORD_PATTERN = /[A-Za-z]+(?:'[A-Za-z]+)*|\d+|[^\sA-Za-z\d]/gu;
 
 function chunkStem(stem) {
   const parts = Math.ceil(stem.length / 4);
@@ -71,7 +77,9 @@ function splitWord(word) {
     }
   }
 
-  if (rest.length >= 4) {
+  // Short words under six letters never split on a suffix: real tokenizers
+  // keep frequent words like "this" or "class" whole, so the demo does too.
+  if (rest.length >= 6) {
     for (const suffix of SUFFIXES) {
       const stemLength = rest.length - suffix.length;
       const stem = rest.slice(0, stemLength);
@@ -124,7 +132,11 @@ export function tokenize(text) {
         }
       }
     } else if (/^[A-Za-z]/.test(match)) {
-      tokens.push(...splitWord(match));
+      // A for of loop, not spread: spread pushes every chunk as a call
+      // argument and crashes RangeError on very long single words.
+      for (const piece of splitWord(match)) {
+        tokens.push(piece);
+      }
     } else {
       tokens.push({ text: match, kind: "punct" });
     }
@@ -303,8 +315,11 @@ export function markovDistribution(context) {
 
 /** Softmax over an array of logits. */
 export function softmax(logits) {
-  const max = Math.max(...logits);
-  const exps = logits.map((l) => Math.exp(l - max));
+  const infinite = logits.filter((value) => value === Infinity).length;
+  if (infinite) return logits.map((value) => value === Infinity ? 1 / infinite : 0);
+  const max = logits.reduce((largest, value) => Number.isFinite(value) ? Math.max(largest, value) : largest, -Infinity);
+  if (max === -Infinity) return logits.map(() => 0);
+  const exps = logits.map((value) => Number.isFinite(value) ? Math.exp(value - max) : 0);
   const sum = exps.reduce((a, b) => a + b, 0);
   return exps.map((e) => e / sum);
 }
@@ -318,14 +333,18 @@ export function softmax(logits) {
  */
 export function applyTemperature(dist, temperature) {
   const t = Number(temperature);
+  const logs = dist.map((entry) => Number.isFinite(entry.prob) && entry.prob > 0 ? Math.log(entry.prob) : -Infinity);
+  const maximum = logs.reduce((a, b) => Math.max(a, b), -Infinity);
+  if (maximum === -Infinity) return dist.map((entry) => ({ ...entry, prob: 0 }));
+  if (t === Infinity) {
+    const uniform = 1 / dist.length;
+    return dist.map((entry) => ({ ...entry, prob: uniform }));
+  }
   if (!Number.isFinite(t) || t <= 0) {
-    let best = 0;
-    for (let i = 1; i < dist.length; i += 1) {
-      if (dist[i].prob > dist[best].prob) best = i;
-    }
+    const best = logs.indexOf(maximum);
     return dist.map((entry, i) => ({ ...entry, prob: i === best ? 1 : 0 }));
   }
-  const logits = dist.map((entry) => Math.log(entry.prob) / t);
+  const logits = logs.map((value) => (value - maximum) / t);
   const probs = softmax(logits);
   return dist.map((entry, i) => ({ ...entry, prob: probs[i] }));
 }
@@ -354,15 +373,16 @@ export function topK(dist, k) {
 
 /** Draw one word from a distribution using the given random function. */
 export function sampleFrom(dist, rng) {
+  if (!Array.isArray(dist) || dist.length === 0) return null;
   const roll = rng();
   let cumulative = 0;
   for (const entry of dist) {
     cumulative += entry.prob;
     if (roll < cumulative || entry === dist[dist.length - 1]) {
-      return entry.word;
+      return entry.word ?? null;
     }
   }
-  return dist[dist.length - 1].word;
+  return dist[dist.length - 1].word ?? null;
 }
 
 /**
@@ -374,8 +394,14 @@ export function generate(context, { temperature = 1, topKValue = 0, maxWords = 1
   const words = [];
   const steps = [];
   let current = context;
+  // null/undefined use the default; malformed non-null values still clamp to 0.
+  const limit = maxWords == null
+    ? 10
+    : Number.isFinite(Number(maxWords))
+      ? Math.max(0, Math.min(256, Math.floor(Number(maxWords))))
+      : 0;
 
-  for (let i = 0; i < maxWords; i += 1) {
+  for (let i = 0; i < limit; i += 1) {
     const raw = markovDistribution(current);
     if (raw.length === 0) break;
     let shaped = applyTemperature(raw, temperature);
@@ -404,13 +430,21 @@ const SUMMARY_TEXT = "Earlier messages, summarized briefly.";
  * messages is an array of { id, role, text }.
  */
 export function budgetAccount(messages, limit) {
-  const cap = Math.max(0, Math.floor(Number(limit) || 0));
-  const perMessage = messages.map((message) => ({
-    id: message.id,
-    role: message.role,
-    text: message.text,
-    tokens: countTokens(message.text)
-  }));
+  // Malformed limits still collapse to zero; only Infinity maps to "no real
+  // cap" so remaining never serializes as null.
+  const cap = Number(limit) === Infinity
+    ? Number.MAX_SAFE_INTEGER
+    : Math.max(0, Math.floor(Number(limit) || 0));
+  const list = Array.isArray(messages) ? messages : [];
+  const perMessage = list.map((message, index) => {
+    const text = message && typeof message.text === "string" ? message.text : "";
+    return {
+      id: message && message.id != null ? message.id : `m${index}`,
+      role: message && typeof message.role === "string" ? message.role : "user",
+      text,
+      tokens: countTokens(text)
+    };
+  });
   const used = perMessage.reduce((sum, entry) => sum + entry.tokens, 0);
   return {
     limit: cap,
@@ -431,113 +465,44 @@ export function budgetAccount(messages, limit) {
  */
 export function truncate(messages, limit, strategy = "recent") {
   const account = budgetAccount(messages, limit);
+  const entries = account.perMessage;
+  if (new Set(entries.map((entry) => entry.id)).size !== entries.length) {
+    throw new Error("Message identifiers must be unique");
+  }
   const cap = account.limit;
-  const systemIds = messages.filter((m) => m.role === "system").map((m) => m.id);
-
+  const kept = new Set();
   let keptTokens = 0;
-  const fits = (extraTokens) => (keptTokens + extraTokens) <= cap;
-
-  const keptIds = [];
-  const droppedIds = [];
-  let summaryStub = null;
-
-  const keep = (id, tokens) => {
-    keptIds.push(id);
-    keptTokens += tokens;
+  const fits = (tokens) => keptTokens + tokens <= cap;
+  const keep = (entry) => {
+    if (!fits(entry.tokens)) return false;
+    kept.add(entry.id);
+    keptTokens += entry.tokens;
+    return true;
   };
 
-  if (strategy === "summary") {
-    // Keep system, the first user message and the newest messages, then
-    // spend a small fixed budget on a simulated summary of the dropped middle.
-    const summaryTokens = countTokens(SUMMARY_TEXT);
-    for (const message of messages) {
-      if (message.role === "system") {
-        keep(message.id, account.perMessage.find((p) => p.id === message.id).tokens);
-      }
-    }
-    const nonSystem = messages.filter((m) => m.role !== "system");
-    if (nonSystem.length > 0) {
-      const first = nonSystem[0];
-      keep(first.id, account.perMessage.find((p) => p.id === first.id).tokens);
-    }
-    const restNewestFirst = [...nonSystem.slice(1)].reverse();
-    for (const message of restNewestFirst) {
-      const tokens = account.perMessage.find((p) => p.id === message.id).tokens;
-      if (fits(tokens)) {
-        keep(message.id, tokens);
-      } else {
-        droppedIds.push(message.id);
-        // A window slides as one block, so stop at the first message that
-        // no longer fits and drop everything older with it.
-        break;
-      }
-    }
-    if (droppedIds.length > 0 && fits(summaryTokens)) {
-      summaryStub = { text: SUMMARY_TEXT, tokens: summaryTokens };
-      keptTokens += summaryTokens;
-    } else if (droppedIds.length > 0) {
-      // No room for the summary either, the drops stand.
-      summaryStub = null;
-    }
-  } else if (strategy === "bookends") {
-    const nonSystem = messages.filter((m) => m.role !== "system");
-    for (const message of messages) {
-      if (message.role === "system") {
-        keep(message.id, account.perMessage.find((p) => p.id === message.id).tokens);
-      }
-    }
-    if (nonSystem.length > 0) {
-      const first = nonSystem[0];
-      keep(first.id, account.perMessage.find((p) => p.id === first.id).tokens);
-    }
-    const restNewestFirst = [...nonSystem.slice(1)].reverse();
-    for (const message of restNewestFirst) {
-      const tokens = account.perMessage.find((p) => p.id === message.id).tokens;
-      if (fits(tokens)) {
-        keep(message.id, tokens);
-      } else {
-        droppedIds.push(message.id);
-        // A window slides as one block, so stop at the first message that
-        // no longer fits and drop everything older with it.
-        break;
-      }
-    }
-  } else {
-    // "recent", keep system then newest first.
-    for (const message of messages) {
-      if (message.role === "system") {
-        keep(message.id, account.perMessage.find((p) => p.id === message.id).tokens);
-      }
-    }
-    const restNewestFirst = [...messages].filter((m) => m.role !== "system").reverse();
-    for (const message of restNewestFirst) {
-      const tokens = account.perMessage.find((p) => p.id === message.id).tokens;
-      if (fits(tokens)) {
-        keep(message.id, tokens);
-      } else {
-        droppedIds.push(message.id);
-        // A window slides as one block, so stop at the first message that
-        // no longer fits and drop everything older with it.
-        break;
-      }
-    }
+  // Priority never overrides the hard token cap. Whole messages that cannot
+  // fit are omitted, including an oversized system message or opener.
+  for (const entry of entries.filter((entry) => entry.role === "system")) keep(entry);
+  const nonSystem = entries.filter((entry) => entry.role !== "system");
+  if (strategy === "bookends" || strategy === "summary") {
+    const opener = nonSystem.find((entry) => entry.role === "user");
+    if (opener) keep(opener);
+  }
+  const newestFirst = nonSystem.filter((entry) => !kept.has(entry.id)).reverse();
+  for (const entry of newestFirst) {
+    if (!keep(entry)) break;
   }
 
-  const keptSet = new Set(keptIds);
-  const orderedKept = messages.filter((m) => keptSet.has(m.id)).map((m) => m.id);
-  // Anything the walk never kept counts as dropped, including messages the
-  // walk stopped before reaching.
-  const orderedDropped = messages.filter((m) => !keptSet.has(m.id)).map((m) => m.id);
-
-  return {
-    strategy,
-    limit: cap,
-    keptIds: orderedKept,
-    droppedIds: orderedDropped,
-    summaryStub,
-    usedAfter: keptTokens,
-    remainingAfter: Math.max(0, cap - keptTokens)
-  };
+  const keptIds = entries.filter((entry) => kept.has(entry.id)).map((entry) => entry.id);
+  const droppedIds = entries.filter((entry) => !kept.has(entry.id)).map((entry) => entry.id);
+  let summaryStub = null;
+  const summaryTokens = countTokens(SUMMARY_TEXT);
+  if (strategy === "summary" && droppedIds.length > 0 && fits(summaryTokens)) {
+    summaryStub = { text: SUMMARY_TEXT, tokens: summaryTokens };
+    keptTokens += summaryTokens;
+  }
+  return { strategy, limit: cap, keptIds, droppedIds, summaryStub,
+    usedAfter: keptTokens, remainingAfter: cap - keptTokens };
 }
 
 /* ------------------------------------------------------------------ */
@@ -548,30 +513,188 @@ export function truncate(messages, limit, strategy = "recent") {
  * Assemble a structured prompt from its four parts.
  * Returns { text, parts } where each part is labeled for the page to annotate.
  */
-export function assemblePrompt({ role = "", task = "", constraints = [], format = "" } = {}) {
+export function assemblePrompt(input) {
+  const { role = "", task = "", constraints = [], format = "" } = input || {};
+  // Coerce hostile input: objects and nulls become empty strings rather than
+  // "- null" or "- [object Object]" bullets, and non arrays are ignored.
+  const str = (v) => (v == null || typeof v === "object" ? "" : String(v));
   const lines = [];
   const parts = [];
 
-  if (role.trim() !== "") {
-    lines.push(`You are ${role.trim()}.`);
-    parts.push({ label: "Role", text: `You are ${role.trim()}.` });
+  const roleText = str(role).trim();
+  if (roleText !== "") {
+    lines.push(`You are ${roleText}.`);
+    parts.push({ label: "Role", text: `You are ${roleText}.` });
   }
-  if (task.trim() !== "") {
-    lines.push(task.trim());
-    parts.push({ label: "Task", text: task.trim() });
+  const taskText = str(task).trim();
+  if (taskText !== "") {
+    lines.push(taskText);
+    parts.push({ label: "Task", text: taskText });
   }
-  const constraintList = (Array.isArray(constraints) ? constraints : String(constraints).split("\n"))
-    .map((c) => c.trim())
+  const constraintList = (Array.isArray(constraints)
+    ? constraints.map((c) => str(c).trim())
+    : typeof constraints === "string" ? constraints.split("\n").map((c) => c.trim()) : [])
     .filter((c) => c !== "");
   if (constraintList.length > 0) {
     const block = constraintList.map((c) => `- ${c}`).join("\n");
     lines.push(block);
     parts.push({ label: "Constraints", text: block });
   }
-  if (format.trim() !== "") {
-    lines.push(`Respond as ${format.trim()}.`);
-    parts.push({ label: "Format", text: `Respond as ${format.trim()}.` });
+  const formatText = str(format).trim();
+  if (formatText !== "") {
+    lines.push(`Respond as ${formatText}.`);
+    parts.push({ label: "Format", text: `Respond as ${formatText}.` });
   }
 
   return { text: lines.join("\n\n"), parts };
+}
+
+/* ------------------------------------------------------------------ */
+/* Deepened analytics: information theory and strategy comparison      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Shannon entropy in bits of a probability distribution.
+ * Entries with zero probability contribute nothing. Non finite or negative
+ * probabilities are ignored so a malformed distribution degrades safely.
+ */
+export function entropy(dist) {
+  return normalizedOdds(dist).probs.reduce((sum, p) => sum - p * Math.log2(p), 0);
+}
+
+/** Entropy support, defined as 2 raised to the entropy. */
+export function entropySupport(dist) {
+  return Math.pow(2, entropy(dist));
+}
+
+function normalizedOdds(dist) {
+  const weights = (Array.isArray(dist) ? dist : [])
+    .map((entry) => Number(entry && entry.prob))
+    .filter((p) => Number.isFinite(p) && p > 0);
+  if (!weights.length) return { probs: [], mass: 0 };
+  const largest = weights.reduce((a, b) => Math.max(a, b), 0);
+  const scaled = weights.map((p) => p / largest);
+  const scaleSum = scaled.reduce((a, b) => a + b, 0);
+  const mass = weights.reduce((a, b) => a + b, 0);
+  return { probs: scaled.map((p) => p / scaleSum).filter((p) => p > 0),
+    mass: Number.isFinite(mass) ? mass : null };
+}
+
+/**
+ * A compact diagnostic bundle for a next word distribution.
+ * support is the count of entries with positive probability, effectiveSupport
+ * is the inverse Simpson index (1 / sum of p squared), and topProb is the
+ * largest probability. All values are deterministic.
+ */
+export function distributionDiagnostics(dist) {
+  const odds = normalizedOdds(dist);
+  const normalized = odds.probs;
+  let entropyBits = 0;
+  let simpson = 0;
+  let topProb = 0;
+  for (const p of normalized) {
+    entropyBits += -p * Math.log2(p);
+    simpson += p * p;
+    if (p > topProb) topProb = p;
+  }
+  return {
+    support: normalized.length,
+    entropyBits: Number(entropyBits.toFixed(6)),
+    entropySupport: Number(Math.pow(2, entropyBits).toFixed(6)),
+    effectiveSupport: simpson > 0 ? Number((1 / simpson).toFixed(6)) : 0,
+    topProb: Number(topProb.toFixed(6)),
+    mass: odds.mass === null ? null : Number(odds.mass.toFixed(6))
+  };
+}
+
+/**
+ * Sweep temperature from low to high and report how the shaped distribution
+ * changes. Every point is computed from the real bigram table with the given
+ * top k setting, so the curve is exact rather than interpolated.
+ */
+export function temperatureSweep(context, { topKValue = 0, steps = 12, min = 0.05, max = 2 } = {}) {
+  const count = Number.isFinite(steps) && steps >= 2 ? Math.min(64, Math.floor(steps)) : 12;
+  const lo = Number.isFinite(min) ? Math.max(0, min) : 0.05;
+  const hi = Number.isFinite(max) && max > lo ? max : lo + 1;
+  const points = [];
+  for (let i = 0; i < count; i++) {
+    const temperature = lo + ((hi - lo) * i) / (count - 1);
+    const raw = markovDistribution(context);
+    const shaped = topK(applyTemperature(raw, temperature), topKValue);
+    const diag = distributionDiagnostics(shaped);
+    points.push({
+      index: i,
+      temperature: Number(temperature.toFixed(4)),
+      entropyBits: diag.entropyBits,
+      entropySupport: diag.entropySupport,
+      effectiveSupport: diag.effectiveSupport,
+      topProb: diag.topProb,
+      support: diag.support
+    });
+  }
+  return { context, topKValue, steps: count, min: lo, max: hi, points };
+}
+
+/**
+ * Sweep top k from one to the full support and report the same diagnostics.
+ * Support can only shrink or stay flat as k decreases, and entropy is
+ * non decreasing as k grows.
+ */
+export function topKSweep(context, { temperature = 1, maxK = 0 } = {}) {
+  const raw = markovDistribution(context);
+  const cap = Number.isFinite(maxK) && maxK > 0 ? Math.min(Math.max(1, Math.floor(maxK)), raw.length) : raw.length;
+  const points = [];
+  for (let k = 1; k <= cap; k++) {
+    const shaped = topK(applyTemperature(raw, temperature), k);
+    const diag = distributionDiagnostics(shaped);
+    points.push({ k, ...diag });
+  }
+  return { context, temperature, maxK: cap, points };
+}
+
+/**
+ * Compare all three truncation strategies on one conversation and limit.
+ * Returns an ordered comparison table with kept and dropped counts, token
+ * usage, and a retention score (share of original message tokens retained).
+ */
+export function compareTruncationStrategies(messages, limit) {
+  const account = budgetAccount(messages, limit);
+  const originalTokens = account.used;
+  const strategies = ["recent", "bookends", "summary"];
+  const rows = strategies.map((strategy) => {
+    const result = truncate(messages, limit, strategy);
+    const score = contextRetentionScore(messages, result, account);
+    return {
+      strategy,
+      keptCount: result.keptIds.length,
+      droppedCount: result.droppedIds.length,
+      usedAfter: result.usedAfter,
+      remainingAfter: result.remainingAfter,
+      summaryTokens: result.summaryStub ? result.summaryStub.tokens : 0,
+      retentionScore: score.retentionScore,
+      retainedMessageTokens: score.retainedMessageTokens,
+      withinLimit: result.usedAfter <= account.limit
+    };
+  });
+  return { limit: account.limit, originalTokens, originalCount: messages.length, rows };
+}
+
+/**
+ * Fraction of original message tokens kept by a truncation result.
+ * System messages are included. A summary stub adds tokens but is not counted
+ * as retained conversation, so the score never exceeds one.
+ */
+export function contextRetentionScore(messages, truncateResult, account) {
+  const acct = account || budgetAccount(messages, truncateResult ? truncateResult.limit : 0);
+  const kept = new Set((truncateResult && truncateResult.keptIds) || []);
+  let retained = 0;
+  for (const entry of acct.perMessage) {
+    if (kept.has(entry.id)) retained += entry.tokens;
+  }
+  const total = acct.used;
+  return {
+    retainedMessageTokens: retained,
+    originalMessageTokens: total,
+    retentionScore: total > 0 ? Number((retained / total).toFixed(6)) : 1
+  };
 }

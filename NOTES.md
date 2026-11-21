@@ -1,115 +1,23 @@
-# FirstPrompt Notes
+# FirstPrompt implementation notes
 
-An interactive primer that teaches how language model text generation actually works, computed
-entirely by a transparent deterministic simulator in the browser. Built for the Build With AI:
-Basics hackathon by Aariv Patel.
+## Current scope
 
-## What Was Built
+Five browser lessons share one deterministic local simulator. The tokenizer, weighted bigram table and fixed summary stub are teaching fixtures. Editable pricing is illustrative. Entropy and retention describe this fixture rather than measured answer quality.
 
-A static single page app in `index.html` with four hands on lessons, vanilla HTML, CSS and
-JavaScript, zero dependencies, no build step, GitHub Pages ready.
+The page implements token inspection, seeded sampling, context truncation, structured prompt assembly and an odds lesson with distribution diagnostics, a temperature sweep and a retained-token comparison. The top-k sweep is an exported engine helper. It is not a separate page chart.
 
-**Lesson 1, Words Become Tokens.** An editable text area drives a rule based tokenizer. Common
-words stay whole, longer words split into subword pieces, punctuation and digit runs become their
-own tokens. Chips color code the three kinds, and a running estimate multiplies the token count
-by an editable per token price, with the per million equivalent shown alongside.
+## Repairs
 
-**Lesson 2, One Word At A Time.** A large SVG dial with a moving needle maps temperature from 0
-to 2 across Predictable, Balanced and Adventurous zones. A small hand authored bigram table holds
-the odds for the next word. Sliders for temperature and top k reshape the distribution live
-(softmax over scaled logits, then top k with renormalization), a caption explains the current
-regime, and a Draw Three Samples button runs three seeded walks through the table so the same
-seed and settings always produce the same sentences.
+Temperature input refreshes the samples and diagnostics together. Extremely small positive temperatures use centered logits to avoid overflowing the scale. Display captions distinguish top-k removal from low-probability rows hidden for readability.
 
-**Lesson 3, The Context Window.** A stacked meter fills as messages are added, each segment sized
-by its real token count from the same tokenizer as Lesson 1. When the conversation overflows the
-chosen window size (64, 128 or 256 tokens), three truncation strategies are compared on the same
-state: Recent First slides the window forward as one block, Keep The Opener additionally pins the
-first user message, and Summarize The Middle trades a small fixed token budget for a stand in
-summary of what was cut. Kept and dropped messages are tagged right in the transcript.
+Every truncation strategy honors the hard token cap, including a zero cap. System messages and the first user message receive priority only when they fit. Whole-message truncation does not summarize actual conversation meaning. Summary-stub tokens are excluded from retained original tokens, and message identifiers must be unique.
 
-**Lesson 4, Prompt Builder.** A structured composer with Role, Task, Constraints and Format.
-It assembles a copyable prompt with each part labeled, counts its tokens, explains what each part
-is for, and offers a one click example. The copy button uses the clipboard API with a fallback
-for stricter contexts.
+## Interface
 
-Everything is labeled as a simulation, in the header badge and the footer note. There are no API
-calls, no network requests, no fonts loaded, no analytics, no storage.
+The existing pine and chalk palette, native controls, temperature dial, focus states and reduced-motion rules remain the visual system. The fifth lesson extends that system. No account, hosted endpoint or persistent storage is used. Copying a prompt is an explicit user action with a clipboard fallback.
 
-## Design Direction
+## Verification
 
-Friendly classroom chalkboard meets clean editorial. One canvas color (deep pine green), chalk
-ink, and a single accent (chalk gold), declared as CSS custom properties and referenced by name
-everywhere. Oversized numerals appear as the four lesson numbers and as the big readouts. Human
-Title Case headings, generous whitespace, system serif for display, system sans for body, system
-mono for every numeral in the data. The signature moment is the temperature dial, whose needle
-glides and whose bars reshape in one eased motion. Reduced motion is honored, focus is always
-visible, all controls are native and keyboard operable, and the page has a skip link, one h1,
-landmarks and live regions where status changes matter.
+Run `npm test`. README.md and DEVPOST_UPGRADE.md contain the exact current test and syntax counts. Tests cover engine arithmetic, bounded work, retained-token reconstruction, mounted control changes, markup and complete working-tree text hygiene. Content probes use character codes and the content scan includes its own tests.
 
-## Tests
-
-Run with `npm test` (Node 18 or newer, `node:test` is built in, no packages installed).
-
-Exact counts from the last run:
-
-- 42 tests, 42 passing, 0 failing, 0 skipped
-- 103 assertion calls in the test file (93 direct plus 10 through an epsilon helper), more at
-  runtime because a few assertions run inside loops
-- full suite time is about 40 ms, offline, CPU trivial
-
-Coverage areas: the tokenizer (word and subword splits, punctuation, digit grouping, determinism,
-empty and invalid input, round trip reassembly), the seeded generator (stability, distinct
-streams, range), the Markov table (normalization, fallback, every continuation word has a row),
-temperature math (identity at 1, greedy at 0, sharpen and flatten behavior, sums to one, softmax
-against hand computed values), top k (winner takes all, renormalization, no-op at or above
-support, correct survivors), sampling and generation (seed reproducibility, max length, greedy
-favorite, unknown context fallback), budget accounting (sums, remaining, overflow, fill clamp),
-all three truncation strategies (system messages always survive, contiguous sliding window,
-bookend protection, summary stub cost), and prompt assembly (labels, empty part skipping, token
-counting).
-
-## Honest Caveats
-
-- The tokenizer is rule based, not learned. Real BPE tokenizers count spaces, handle rare
-  Unicode differently and will produce different counts. The page says so in the lesson copy.
-- The Markov table is hand written and small (123 rows). Its greedy path deliberately loops
-  on "the model predicts", which doubles as the lesson about low temperature repetition.
-- Context window sizes (64 to 256) are teaching sizes. Real windows run from thousands to around
-  a million tokens; the page says so next to the control.
-- The summary strategy uses a fixed stub text of about 10 tokens, not a real summarizer, and the
-  copy labels it a stand in.
-- Cost estimates are illustrative math on an editable price, not a quote for any provider.
-- No real model is called anywhere; the badge and footer label the whole page as a simulation.
-- Visual QA was done through code review and a headless DOM exercise of every panel, not a
-  rendered browser pass, because the build environment disallows browsers. The CSS is tested by
-  hand calculations for contrast (chalk on pine is about 11.3 to 1, accent about 7.7 to 1,
-  muted secondary text about 5.4 to 1) rather than screenshots.
-
-## Five Devpost Bullets
-
-- See the machine think in real time: type any sentence and watch a transparent tokenizer split
-  it into words, subwords and punctuation, with a live cost estimate on an editable per token
-  price.
-- Drag the temperature dial and watch the odds physically reshape: a hand authored word table
-  turns predictable or adventurous before your eyes, with seeded sampling that replays exactly.
-- Overflow a context window on purpose and compare three truncation strategies side by side,
-  Recent First, Keep The Opener and Summarize The Middle, with every dropped message tagged in
-  the transcript.
-- Assemble your first prompt from Role, Task, Constraints and Format, copy it with one click,
-  and learn why each part earns its place.
-- One hundred percent offline: one HTML page, zero dependencies, zero API calls, 42 passing
-  tests behind the math, everything computed by a simulator you could rewrite yourself.
-
-## Refinement Pass 2026-10-24
-
-A presentation only pass over the deployed page. No simulator or lesson changes.
-
-- Wiring audit: every id app.js references exists in the markup, no duplicate ids, no dead listeners, no reachable console errors on a served load.
-- Added Open Graph title, description and type tags, and a theme color matching the chalk gold on pine canvas. Share sheets and browser chrome had nothing to read before.
-- Fixed contrast: helper text rode the faint ink token at 45 percent alpha, which computes to roughly 3.4 to 3.6 to 1 against the canvas and the wash and fails AA for normal text. The token now sits at 58 percent alpha, about 4.6 to 5.0 to 1, same hue, no other token touched.
-- Removed three provably dead CSS rules that no markup or script references: .visually-hidden, .token-grid and .dial-stage.
-- Fixed a screen reader noise bug: the sample list was a polite live region that re announced three full sentences on every keystroke in the seed field and every top k tick. It is ordinary content now; the discrete status regions elsewhere are unchanged.
-- Verified: no horizontal overflow at 320 px (the two column lesson grids collapse at 900 px and the row grids shrink at 640 px), reduced motion collapses every transition and the one entrance animation, no em or en dashes, no emoji, no all caps kickers.
-- Residual risk: module scripts need a static server. Opening index.html from file:// renders nothing because the import fails silently. Deployed over HTTP this cannot happen.
-- Tests before the pass: 42 passed, 0 failed. Tests after: 42 passed, 0 failed, so the hero copy still truthfully says 42.
+Local ES modules require a static server. The older four-lesson draft descriptions have been updated to the five-lesson implementation. Deployment and learner validation are not inferred from local verification.

@@ -54,7 +54,7 @@ test('DOM Smoke 06: index.html contains exactly one <h1> element', () => {
 
 test('DOM Smoke 07: heading hierarchy in index.html never skips levels', () => {
   const levels = [...indexHtml.matchAll(/<h([1-6])\b/gi)].map((m) => Number(m[1]));
-  assert.equal(levels.length, 8);
+  assert.equal(levels.length, 12);
   assert.equal(levels[0], 1);
   for (let i = 1; i < levels.length; i += 1) {
     assert.ok(
@@ -64,9 +64,9 @@ test('DOM Smoke 07: heading hierarchy in index.html never skips levels', () => {
   }
 });
 
-test('DOM Smoke 08: all 53 id attributes in index.html are unique', () => {
+test('DOM Smoke 08: all id attributes in index.html are unique', () => {
   const ids = [...indexHtml.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
-  assert.equal(ids.length, 53);
+  assert.ok(ids.length >= 64);
   const uniqueIds = new Set(ids);
   assert.equal(uniqueIds.size, ids.length, 'Duplicate IDs found in index.html');
 });

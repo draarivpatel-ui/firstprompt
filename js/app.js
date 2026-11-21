@@ -1,7 +1,7 @@
 /*
  * FirstPrompt page wiring.
  * All rendering reads from js/simulator.js, the same code the tests cover.
- * No timers, no animation loops, no network.
+ * Clipboard feedback uses one bounded timer. No animation loops or network.
  */
 
 import {
@@ -14,7 +14,10 @@ import {
   generate,
   budgetAccount,
   truncate,
-  assemblePrompt
+  assemblePrompt,
+  distributionDiagnostics,
+  temperatureSweep,
+  compareTruncationStrategies
 } from "./simulator.js";
 
 const $ = (id) => document.getElementById(id);
@@ -34,9 +37,11 @@ const chipsEl = $("token-chips");
 const CHIP_LIMIT = 300;
 
 function formatMoney(value) {
-  if (!Number.isFinite(value) || value <= 0) return "$0";
+  if (!Number.isFinite(value)) return value > 0 ? "cost exceeds display" : "$0";
+  if (value <= 0) return "$0";
   if (value >= 0.01) return "$" + value.toFixed(2);
   const fixed = value.toFixed(12).replace(/0+$/, "");
+  if (fixed === "0.") return "<$0.000000000001";
   return "$" + fixed;
 }
 
@@ -49,7 +54,8 @@ function renderTokens() {
   charCountEl.textContent = String(text.length);
   tokenCostEl.textContent = formatMoney(tokenCost(tokens, price));
   costPerMillionEl.textContent =
-    price > 0 ? formatMoney(price * 1000000) + " per million tokens" : "Free At A Price Of Zero";
+    price > 0 ? formatMoney(price * 1000000) + " per million tokens"
+      : price < 0 ? "Negative prices are not supported" : "Free At A Price Of Zero";
 
   chipsEl.textContent = "";
   const shown = tokens.slice(0, CHIP_LIMIT);
@@ -113,17 +119,16 @@ const START_PHRASES = [
 
 const tempState = { temperature: 0.8, topKValue: 8, seed: 7, lastWord: "the" };
 
+// Boundaries match the three dial zones in renderDial exactly, so the
+// colored zone and the sentence always describe the same regime.
 function regimeText(t) {
-  if (t <= 0.55) {
+  if (t < 0.6) {
     return "<strong>Predictable.</strong> The favorite word wins almost every draw, so sentences repeat.";
   }
-  if (t <= 1.25) {
+  if (t <= 1.4) {
     return "<strong>Balanced.</strong> The favorite still leads, but the chase words get real chances.";
   }
-  if (t <= 1.6) {
-    return "<strong>Curious.</strong> Rare words surface often and the writing turns colorful.";
-  }
-  return "<strong>Adventurous.</strong> Odds flatten toward uniform and grammar starts to wobble.";
+  return "<strong>Adventurous.</strong> Odds flatten toward uniform, rare words surface often, and grammar starts to wobble.";
 }
 
 function shapedDistribution(contextWord, temperature, topKValue) {
@@ -152,7 +157,7 @@ function renderTopK() {
   topkOutput.textContent = k >= support ? "All" : String(k);
   topkHelp.textContent =
     k >= support
-      ? "At 8 the menu keeps every word in this small table."
+      ? `At ${k} the menu keeps every word in this small table.`
       : `Only the ${k} highest odds survive. The rest are removed and the menu is renormalized.`;
 }
 
@@ -185,11 +190,14 @@ function renderDistribution() {
     distList.appendChild(li);
   });
 
-  const removed = support - kept.length;
+  const selected = tempState.topKValue > 0 ? Math.min(tempState.topKValue, support) : support;
+  const removed = support - selected;
+  const hidden = shaped.filter((entry) => entry.prob > 0 && entry.prob <= 0.0001).length;
   distCaption.textContent =
     removed > 0
-      ? `${removed} word${removed === 1 ? "" : "s"} cut by top k and the rest rescaled to 100%.`
-      : "Nothing cut. Top k is wider than the table.";
+      ? `${removed} word${removed === 1 ? "" : "s"} cut by top k. Selected probabilities total 100%.`
+      : "Top k keeps the whole table.";
+  if (hidden) distCaption.textContent += ` ${hidden} positive probabilities below the display threshold are hidden.`;
 }
 
 function renderSamples() {
@@ -218,12 +226,15 @@ function renderTemperaturePanel() {
 tempSlider.addEventListener("input", () => {
   tempState.temperature = Number(tempSlider.value);
   renderTemperaturePanel();
+  renderSamples();
+  renderInsights();
 });
 
 topkSlider.addEventListener("input", () => {
   tempState.topKValue = Number(topkSlider.value);
   renderTemperaturePanel();
   renderSamples();
+  renderInsights();
 });
 
 seedInput.addEventListener("input", renderSamples);
@@ -243,6 +254,7 @@ for (const [label, contextWord] of START_PHRASES) {
     }
     renderTemperaturePanel();
     renderSamples();
+    renderInsights();
   });
   startChips.appendChild(button);
 }
@@ -258,7 +270,7 @@ const windowStatus = $("window-status");
 const messageList = $("message-list");
 const strategyInputs = Array.from(document.querySelectorAll('input[name="strategy"]'));
 
-const SYSTEM_TEXT = "You are a friendly tutor for people new to AI.";
+const SYSTEM_TEXT = "You are a friendly tutor for people new to the topic.";
 const QUESTIONS = [
   "What is a token?",
   "Why do pieces matter?",
@@ -399,31 +411,36 @@ function renderWindow() {
   }
 }
 
+function renderWindowAndComparison() {
+  renderWindow();
+  renderInsightComparison();
+}
+
 $("add-question").addEventListener("click", () => {
   addMessage("user", QUESTIONS[chat.questionIndex % QUESTIONS.length]);
   chat.questionIndex += 1;
-  renderWindow();
+  renderWindowAndComparison();
 });
 
 $("add-reply").addEventListener("click", () => {
   addMessage("assistant", REPLIES[chat.replyIndex % REPLIES.length]);
   chat.replyIndex += 1;
-  renderWindow();
+  renderWindowAndComparison();
 });
 
 $("remove-last").addEventListener("click", () => {
   chat.messages.pop();
-  renderWindow();
+  renderWindowAndComparison();
 });
 
 $("clear-chat").addEventListener("click", () => {
   resetConversation();
-  renderWindow();
+  renderWindowAndComparison();
 });
 
-limitSelect.addEventListener("change", renderWindow);
+limitSelect.addEventListener("change", renderWindowAndComparison);
 for (const input of strategyInputs) {
-  input.addEventListener("change", renderWindow);
+  input.addEventListener("change", renderWindowAndComparison);
 }
 
 /* ------------------------------------------------------------------ */
@@ -439,6 +456,10 @@ const previewCount = $("preview-count");
 const builderCount = $("builder-count");
 const copyBtn = $("copy-btn");
 const copyNote = $("copy-note");
+
+// The builder form has no submit control: stop implicit Enter submission so
+// the page never reloads and wipes the lesson state.
+$("builder-form").addEventListener("submit", (event) => event.preventDefault());
 
 function renderBuilder() {
   const assembled = assemblePrompt({
@@ -475,7 +496,7 @@ function renderBuilder() {
 
 function fillExample() {
   roleInput.value = "A patient teacher for beginners";
-  taskInput.value = "Explain what a token is to someone who has never used AI";
+  taskInput.value = "Explain what a token is to someone new to the topic";
   constraintsInput.value = "Use everyday words\nKeep it under 100 words\nSkip the history";
   formatSelect.value = "A Bullet List";
   renderBuilder();
@@ -526,6 +547,102 @@ copyBtn.addEventListener("click", async () => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Lesson 5, odds insights                                             */
+/* ------------------------------------------------------------------ */
+
+const insightDiagList = $("insight-diag-list");
+const insightDiagNote = $("insight-diag-note");
+const insightSweepSteps = $("insight-sweep-steps");
+const insightSweepOutput = $("insight-sweep-output");
+const insightSweepSvg = $("insight-sweep-svg");
+const insightSweepNote = $("insight-sweep-note");
+const insightCompareBody = $("insight-compare-body");
+const insightCompareNote = $("insight-compare-note");
+
+function renderInsightDiagnostics() {
+  const shaped = shapedDistribution(tempState.lastWord, tempState.temperature, tempState.topKValue);
+  const diag = distributionDiagnostics(shaped);
+  insightDiagList.textContent = "";
+  const rows = [
+    ["Support (words with odds)", String(diag.support)],
+    ["Entropy (bits)", diag.entropyBits.toFixed(3)],
+    ["Entropy support", diag.entropySupport.toFixed(3)],
+    ["Effective support", diag.effectiveSupport.toFixed(3)],
+    ["Top word odds", (diag.topProb * 100).toFixed(1) + "%"],
+    ["Input probability mass", diag.mass === null ? "Out of range" : diag.mass.toFixed(3)]
+  ];
+  for (const [label, value] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = value;
+    insightDiagList.append(dt, dd);
+  }
+  insightDiagNote.textContent =
+    `Computed from the "${tempState.lastWord}" row at temperature ${tempState.temperature.toFixed(2)} and top k ${tempState.topKValue}. ` +
+    (diag.entropyBits < 0.5
+      ? "The favorite is nearly certain."
+      : diag.entropyBits < 2
+        ? "A few words share the odds."
+        : "Uncertainty is spread across the table.");
+}
+
+function renderInsightSweep() {
+  const requested = Number(insightSweepSteps.value);
+  const steps = Number.isFinite(requested) ? Math.max(4, Math.min(24, Math.floor(requested))) : 12;
+  insightSweepOutput.textContent = String(steps);
+  const sweep = temperatureSweep(tempState.lastWord, { topKValue: tempState.topKValue, steps });
+  const W = 480, H = 220, padL = 42, padR = 14, padT = 18, padB = 34;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxP = Math.max.apply(null, sweep.points.flatMap((p) => [p.entropySupport, p.effectiveSupport]).concat([1]));
+  const xAt = (i) => padL + (plotW * i) / (sweep.points.length - 1);
+  const yAt = (v) => padT + plotH - (v / maxP) * plotH;
+  const pLine = sweep.points.map((p, i) => xAt(i).toFixed(2) + "," + yAt(p.entropySupport).toFixed(2)).join(" ");
+  const effLine = sweep.points.map((p, i) => xAt(i).toFixed(2) + "," + yAt(p.effectiveSupport).toFixed(2)).join(" ");
+  let dots = "";
+  sweep.points.forEach((p, i) => {
+    dots += `<circle cx="${xAt(i).toFixed(2)}" cy="${yAt(p.entropySupport).toFixed(2)}" r="2.8" fill="#1b6b50"><title>${p.temperature.toFixed(2)}: entropy support ${p.entropySupport.toFixed(2)}</title></circle>`;
+  });
+  insightSweepSvg.innerHTML =
+    `<line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="currentColor" stroke-width="1"/>` +
+    `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="currentColor" stroke-width="1"/>` +
+    `<text x="6" y="${padT + 8}" font-family="monospace" font-size="8" fill="currentColor">${maxP.toFixed(1)}</text>` +
+    `<polyline points="${pLine}" fill="none" stroke="#1b6b50" stroke-width="2"/>` +
+    `<polyline points="${effLine}" fill="none" stroke="#c8892a" stroke-width="1.5" stroke-dasharray="4 3"/>` +
+    dots +
+    `<text x="${W / 2}" y="${H - 6}" text-anchor="middle" font-family="monospace" font-size="9" fill="currentColor">temperature sweep (green: entropy support, gold: effective support)</text>`;
+  insightSweepNote.textContent =
+    `${sweep.steps} recomputed points from ${sweep.min.toFixed(2)} to ${sweep.max.toFixed(2)}. ` +
+    `Entropy support ranges from ${sweep.points[0].entropySupport.toFixed(2)} to ${sweep.points[sweep.points.length - 1].entropySupport.toFixed(2)}.`;
+}
+
+function renderInsightComparison() {
+  const limit = Number(limitSelect.value);
+  const cmp = compareTruncationStrategies(chat.messages, limit);
+  insightCompareBody.textContent = "";
+  for (const row of cmp.rows) {
+    const tr = document.createElement("tr");
+    for (const value of [row.strategy, row.keptCount + " / " + cmp.originalCount, row.usedAfter, (row.retentionScore * 100).toFixed(0) + "%"]) {
+      const td = document.createElement("td");
+      td.textContent = String(value);
+      tr.appendChild(td);
+    }
+    insightCompareBody.appendChild(tr);
+  }
+  insightCompareNote.textContent =
+    `Limit ${cmp.limit} tokens across ${cmp.originalCount} messages. Every strategy stays within the cap: ` +
+    cmp.rows.every((r) => r.withinLimit) + ".";
+}
+
+function renderInsights() {
+  renderInsightDiagnostics();
+  renderInsightSweep();
+  renderInsightComparison();
+}
+
+insightSweepSteps.addEventListener("input", renderInsightSweep);
+
+/* ------------------------------------------------------------------ */
 /* Boot                                                                */
 /* ------------------------------------------------------------------ */
 
@@ -535,3 +652,4 @@ renderTemperaturePanel();
 renderSamples();
 renderWindow();
 renderBuilder();
+renderInsights();

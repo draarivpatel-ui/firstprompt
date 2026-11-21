@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FirstPrompt, An Interactive Primer For Language Models</title>
-  <meta name="description" content="A hands on primer for people who have never built with AI. See text become tokens, watch temperature reshape the odds, fill a context window and assemble your first prompt. Everything is a transparent simulation that runs in your browser." />
+  <meta name="description" content="A hands on primer for people new to the topic. See text become tokens, watch temperature reshape the odds, fill a context window and assemble your first prompt. Everything is a transparent simulation that runs in your browser." />
   <meta name="author" content="Aariv Patel" />
   <meta name="theme-color" content="#1d332b" />
   <meta property="og:title" content="FirstPrompt, An Interactive Primer For Language Models" />
-  <meta property="og:description" content="A hands on primer for people who have never built with AI. See text become tokens, watch temperature reshape the odds, fill a context window and assemble your first prompt. Everything is a transparent simulation that runs in your browser." />
+  <meta property="og:description" content="A hands on primer for people new to the topic. See text become tokens, watch temperature reshape the odds, fill a context window and assemble your first prompt. Everything is a transparent simulation that runs in your browser." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://aariv.me/firstprompt/" />
   <meta name="twitter:card" content="summary" />
@@ -28,6 +28,7 @@
           <li><a href="#temperature">Temperature</a></li>
           <li><a href="#window">Context Window</a></li>
           <li><a href="#builder">Prompt Builder</a></li>
+          <li><a href="#insights">Odds</a></li>
         </ol>
       </nav>
     </div>
@@ -36,18 +37,13 @@
   <main id="main">
     <section class="hero frame" id="top" aria-labelledby="hero-title">
       <h1 id="hero-title">See How A Language Model Writes, <span class="turn">One Piece At A Time</span></h1>
-      <p class="hero-lede">
-        You do not need an account, an API key or any prior experience. FirstPrompt is a
-        transparent simulator with four hands on lessons. Every number you see is computed
-        in your browser from a table you could read yourself.
-      </p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="#tokens">Start Lesson One</a>
         <p class="hero-note">No sign in. No network calls. Nothing leaves this page.</p>
       </div>
       <div class="hero-meter">
         <div class="hero-stat">
-          <span class="numeral">4</span>
+          <span class="numeral">5</span>
           <span class="label">Interactive Lessons</span>
         </div>
         <div class="hero-stat">
@@ -55,7 +51,7 @@
           <span class="label">Network Calls, Ever</span>
         </div>
         <div class="hero-stat">
-          <span class="numeral">42</span>
+          <span class="numeral" id="hero-test-count">183</span>
           <span class="label">Automated Tests Behind The Math</span>
         </div>
       </div>
@@ -115,8 +111,8 @@
             <span><span class="swatch swatch-punct" aria-hidden="true"></span>Punctuation</span>
           </p>
           <p class="field-help">
-            This tokenizer follows fixed hand written rules, so common words stay whole and
-            longer words split. Real tokenizers learn their pieces from huge text corpora and
+            This tokenizer follows fixed hand written rules, so short common words stay whole and
+            longer words split on authored affixes. Real tokenizers learn their pieces from huge text corpora and
             usually count spaces too, so treat these counts as a shape, not a quote.
           </p>
         </div>
@@ -304,7 +300,7 @@
             </div>
             <div>
               <label class="field-label" for="task-input">Task</label>
-              <textarea id="task-input" rows="3" placeholder="Explain what a token is to someone who has never used AI"></textarea>
+              <textarea id="task-input" rows="3" placeholder="Explain what a token is to someone new to the topic"></textarea>
               <span class="field-help">The one job, stated as an action. Put it early so it anchors the rest.</span>
             </div>
             <div>
@@ -350,6 +346,44 @@
               <button class="btn btn-primary" id="copy-btn" type="button">Copy Prompt</button>
               <span class="copy-note" id="copy-note" role="status"></span>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="lesson" id="insights" aria-labelledby="insights-title">
+      <div class="frame">
+        <div class="lesson-head">
+          <h2 id="insights-title">Measure The Odds</h2>
+          <p class="lede">Entropy, entropy support and effective support put a number on how uncertain the next word is. These panels reuse the exact same bigram table and temperature math as the dial above.</p>
+        </div>
+        <div class="insights-grid">
+          <div class="panel insights-panel">
+            <h3>Next Word Diagnostics</h3>
+            <dl class="diag-list" id="insight-diag-list"></dl>
+            <p class="field-help" id="insight-diag-note">Uncertainty rises as temperature climbs.</p>
+          </div>
+          <div class="panel insights-panel">
+            <div class="insight-controls">
+              <label for="insight-sweep-steps">Sweep steps</label>
+              <input type="range" id="insight-sweep-steps" min="4" max="24" step="1" value="12" />
+              <output id="insight-sweep-output" for="insight-sweep-steps">12</output>
+            </div>
+            <h3>Temperature Sweep</h3>
+            <svg id="insight-sweep-svg" viewBox="0 0 480 220" role="img" aria-label="Entropy support and effective support across a temperature sweep"></svg>
+            <p class="field-help" id="insight-sweep-note">A real re-computation of the shaped distribution at every step.</p>
+          </div>
+          <div class="panel insights-panel">
+            <h3>Truncation Strategy Comparison</h3>
+            <div class="table-wrap">
+              <table class="compare-table" id="insight-compare-table">
+                <thead>
+                  <tr><th scope="col">Strategy</th><th scope="col">Kept</th><th scope="col">Tokens</th><th scope="col">Retention</th></tr>
+                </thead>
+                <tbody id="insight-compare-body"></tbody>
+              </table>
+            </div>
+            <p class="field-help" id="insight-compare-note">Retention is the share of original conversation tokens kept.</p>
           </div>
         </div>
       </div>

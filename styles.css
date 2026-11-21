@@ -52,7 +52,6 @@
 
 html {
   overflow-x: clip;
-  scroll-behavior: smooth;
 }
 
 body {
@@ -1133,11 +1132,98 @@ input[type="checkbox"] {
   color: var(--ink);
 }
 
+/* ---------------- lesson 5, odds insights ---------------- */
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.insights-panel h3 {
+  margin-top: 0;
+}
+
+.diag-list {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.diag-list dt {
+  color: var(--ink-muted);
+  margin-top: 0.5rem;
+}
+
+.diag-list dd {
+  margin: 0.1rem 0 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.insight-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  margin-bottom: 0.5rem;
+}
+
+.insight-controls input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent, #1b6b50);
+}
+
+.insight-controls output {
+  min-width: 2ch;
+  text-align: right;
+  color: var(--ink);
+}
+
+#insight-sweep-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--wash);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.compare-table th,
+.compare-table td {
+  text-align: left;
+  padding: 0.4rem 0.3rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.compare-table th {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.compare-table td:last-child,
+.compare-table td:nth-child(2),
+.compare-table td:nth-child(3) {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------------- responsive ---------------- */
 
 @media (max-width: 900px) {
   .temp-grid,
-  .builder-grid {
+  .builder-grid,
+  .insights-grid {
     grid-template-columns: 1fr;
   }
 

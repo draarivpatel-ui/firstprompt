@@ -270,7 +270,7 @@ test("unknown starting context falls back to the start row", () => {
 /* ---------------- budget accounting ---------------- */
 
 const messages = [
-  { id: "m1", role: "system", text: "You are a friendly tutor for people new to AI." },
+  { id: "m1", role: "system", text: "You are a friendly tutor for people new to the topic." },
   { id: "m2", role: "user", text: "What is a token?" },
   { id: "m3", role: "assistant", text: "A token is a piece of text the model reads." },
   { id: "m4", role: "user", text: "Why do pieces matter?" },
@@ -299,7 +299,7 @@ test("budgetAccount flags an overfull window", () => {
   assert.equal(account.fill, 1);
 });
 
-test("recent strategy always keeps system messages and slides the rest as one block", () => {
+test("recent strategy keeps fitting system messages and slides the rest as one block", () => {
   const result = truncate(messages, 40, "recent");
   assert.ok(result.keptIds.includes("m1"));
   assert.ok(result.usedAfter <= 40);
